@@ -30,20 +30,12 @@ class ClassroomManager {
         });
 
         // Resource upload form
-       document.addEventListener('DOMContentLoaded', () => {
-    const resourceForm = document.getElementById('resourceUploadForm');
-
-    if (resourceForm) {
-        resourceForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const manager = new ClassroomManager(); // ✅ create instance
-            manager.handleResourceUpload(e);        // ✅ call instance method
-        });
-
-    } else {
-        console.error('resourceUploadForm not found in DOM.');
-    }
-});
+        const resourceForm = document.getElementById('resourceUploadForm');
+        if (resourceForm) {
+            resourceForm.addEventListener('submit', this.handleResourceUpload.bind(this));
+        } else {
+            console.error('resourceUploadForm not found in DOM.');
+        }
 
     }
 
@@ -141,9 +133,10 @@ class ClassroomManager {
                 
                 // Add to recent classrooms
                 this.addToRecentClassrooms({
-                    id: data.classroom?.id || Date.now(),
+                    id: data.classroom?._id || Date.now(),
                     name: className,
                     subject: classSubject,
+                    code: data.classroom?.code,
                     role: 'teacher',
                     joinedAt: new Date().toISOString()
                 });
@@ -202,9 +195,10 @@ class ClassroomManager {
                 
                 // Add to recent classrooms
                 this.addToRecentClassrooms({
-                    id: data.classroom?.id || Date.now(),
+                    id: data.classroom?._id || Date.now(),
                     name: data.classroom?.name || `Classroom ${joinCode}`,
                     subject: data.classroom?.subject || 'General',
+                    code: data.classroom?.code || joinCode,
                     role: 'student',
                     joinedAt: new Date().toISOString()
                 });
@@ -222,6 +216,7 @@ class ClassroomManager {
     }
 
     async handleResourceUpload(e) {
+        e.preventDefault();
         const fileInput = document.getElementById('resourceFile');
         const title = document.getElementById('resourceTitle').value.trim();
         const description = document.getElementById('resourceDescription').value.trim();
@@ -404,14 +399,14 @@ class ClassroomManager {
 
     renderMembers() {
         const membersList = document.getElementById('membersList');
-        const mockMembers = [
+        const members = this.currentClassroom && this.currentClassroom.members ? this.currentClassroom.members : [
             { name: 'John Doe', role: 'Teacher', avatar: 'JD' },
             { name: 'Alice Johnson', role: 'Student', avatar: 'AJ' },
             { name: 'Bob Smith', role: 'Student', avatar: 'BS' },
             { name: 'Carol Davis', role: 'Student', avatar: 'CD' }
         ];
 
-        membersList.innerHTML = mockMembers.map(member => `
+        membersList.innerHTML = members.map(member => `
             <div class="member-item">
                 <div class="member-avatar">${member.avatar}</div>
                 <div class="member-info">
@@ -434,15 +429,27 @@ class ClassroomManager {
                 id: 1,
                 name: 'Advanced Physics',
                 subject: 'Physics',
+                code: 'PHY123',
                 role: 'student',
-                joinedAt: new Date(Date.now() - 86400000).toISOString()
+                joinedAt: new Date(Date.now() - 86400000).toISOString(),
+                members: [
+                    { name: 'John Doe', role: 'Teacher', avatar: 'JD' },
+                    { name: 'Alice Johnson', role: 'Student', avatar: 'AJ' },
+                    { name: 'Bob Smith', role: 'Student', avatar: 'BS' },
+                    { name: 'Carol Davis', role: 'Student', avatar: 'CD' }
+                ]
             },
             {
                 id: 2,
                 name: 'Mathematics 101',
                 subject: 'Mathematics',
+                code: 'MATH101',
                 role: 'teacher',
-                joinedAt: new Date(Date.now() - 172800000).toISOString()
+                joinedAt: new Date(Date.now() - 172800000).toISOString(),
+                members: [
+                    { name: 'Eve Turner', role: 'Teacher', avatar: 'ET' },
+                    { name: 'Frank Mills', role: 'Student', avatar: 'FM' }
+                ]
             }
         ];
     }
@@ -480,10 +487,11 @@ class ClassroomManager {
         }
 
         container.innerHTML = this.recentClassrooms.map(classroom => `
-            <div class="recent-classroom-item" onclick="openClassroomView(${classroom.id})">
+            <div class="recent-classroom-item" onclick="openClassroomView('${classroom.id}')">
                 <div class="recent-classroom-header">
                     <div class="recent-classroom-icon">${classroom.role === 'teacher' ? '👨‍🏫' : '👨‍🎓'}</div>
                     <div class="recent-classroom-name">${classroom.name}</div>
+                    <button class="delete-classroom" onclick="deleteClassroom('${classroom.id}'); event.stopPropagation();">✖</button>
                 </div>
                 <div class="recent-classroom-subject">${classroom.subject}</div>
                 <div class="recent-classroom-meta">
@@ -492,6 +500,33 @@ class ClassroomManager {
                 </div>
             </div>
         `).join('');
+    }
+
+    async deleteClassroom(classroomId) {
+        if (!confirm('Are you sure you want to delete this classroom?')) return;
+
+        const token = localStorage.getItem('token');
+        if (!token) {
+            this.showMessage('Please log in first', 'error');
+            return;
+        }
+
+        try {
+            const res = await fetch(`http://localhost:5002/api/classrooms/${classroomId}`, {
+                method: 'DELETE',
+                headers: { Authorization: token }
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Failed to delete classroom');
+
+            this.recentClassrooms = this.recentClassrooms.filter(c => String(c.id) !== String(classroomId));
+            this.saveRecentClassrooms();
+            this.renderRecentClassrooms();
+            this.showMessage('Classroom deleted successfully!', 'success');
+        } catch (err) {
+            console.error('Delete classroom error:', err);
+            this.showMessage(err.message || 'Error deleting classroom', 'error');
+        }
     }
 
     formatDate(dateString) {
@@ -540,15 +575,16 @@ class ClassroomManager {
     }
 
     openClassroomView(classroomId) {
-        const classroom = this.recentClassrooms.find(c => c.id === classroomId);
+        const classroom = this.recentClassrooms.find(c => String(c.id) === String(classroomId));
         if (classroom) {
             this.currentClassroom = classroom;
             
             // Populate classroom info
             document.getElementById('classroomTitle').textContent = classroom.name;
             document.getElementById('classroomSubject').textContent = classroom.subject;
-            document.getElementById('classroomCreated').textContent = this.formatDate(classroom.joinedAt);
-            document.getElementById('classroomMemberCount').textContent = '4 members';
+            document.getElementById('classroomCode').textContent = classroom.code || '-';
+            const memberCount = classroom.members ? classroom.members.length : 0;
+            document.getElementById('classroomMemberCount').textContent = `${memberCount} members`;
             document.getElementById('classroomRole').textContent = classroom.role;
             
             // Show modal
@@ -572,6 +608,10 @@ function openClassroomView(classroomId) {
 
 function closeClassroomView() {
     classroomManager.closeClassroomView();
+}
+
+function deleteClassroom(classroomId) {
+    classroomManager.deleteClassroom(classroomId);
 }
 
 function downloadResource(resourceId) {

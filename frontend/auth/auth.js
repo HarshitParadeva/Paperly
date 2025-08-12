@@ -189,7 +189,7 @@ class AuthManager {
         }, 3000);
     }
 }
-
+// hi
 document.addEventListener('DOMContentLoaded', () => {
     new AuthManager();
 });
