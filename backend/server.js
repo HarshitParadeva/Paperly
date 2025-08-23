@@ -15,6 +15,9 @@ const { Server } = require('socket.io');
 // Load .env variables
 dotenv.config();
 
+// Debug: check if OpenAI key loaded
+console.log("🔑 OpenAI Key loaded?", !!process.env.OPENROUTER_API_KEY);
+
 // Connect to MongoDB
 connectDB();
 
@@ -27,13 +30,21 @@ const server = http.createServer(app);
 // Initialize Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: ['http://127.0.0.1:5500'], // Replace with frontend URL in production
-    methods: ["GET", "POST"]
+    origin: ['http://127.0.0.1:5500', 'http://localhost:5500'], // allow frontend
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
   }
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://127.0.0.1:5500', 'http://localhost:5500'],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+}));
+
 app.use(express.json());
 app.use('/api/posts', postRoutes);
 
@@ -44,7 +55,7 @@ if (!fs.existsSync(uploadsDir)) {
 }
 app.use('/uploads', express.static(uploadsDir));
 
-// Debug logger
+// Debug logger for every request
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
@@ -67,9 +78,17 @@ app.use((req, res) => {
   res.status(404).json({ message: 'API route not found' });
 });
 
+// --- NEW: Handle Multer/GridFS file upload errors ---
+app.use((err, req, res, next) => {
+  if (err && /Unsupported file type|File too large/i.test(err.message)) {
+    return res.status(400).json({ message: err.message });
+  }
+  next(err);
+});
+
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('Internal server error:', err);
+  console.error('🔥 Internal server error:', err);
   res.status(500).json({ message: 'Something went wrong' });
 });
 
@@ -98,5 +117,14 @@ io.on('connection', (socket) => {
 // Start server
 const PORT = process.env.PORT || 5002;
 server.listen(PORT, () => {
-  console.log(`🚀 Server with Socket.IO running at http://localhost:${PORT}`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
+
+
+require('dotenv').config();
+
+console.log("🔑 ENV Check:");
+console.log("OPENROUTER_API_KEY exists?", !!process.env.OPENROUTER_API_KEY);
+console.log("OPENROUTER_MODEL:", process.env.OPENROUTER_MODEL);
+console.log("MONGO_URI:", process.env.MONGO_URI ? "✅ Loaded" : "❌ Missing");
+console.log("JWT_SECRET:", process.env.JWT_SECRET ? "✅ Loaded" : "❌ Missing");

@@ -121,55 +121,54 @@ class NotesManager {
     }
 
     createNoteCard(note) {
-        const formattedDate = new Date(note.date).toLocaleDateString();
-        const tagsHTML = note.tags.map(tag => `<span class="note-tag">${tag}</span>`).join('');
-        
-        let contentHTML = '';
-        
-        switch (note.type) {
-            case 'text':
-                contentHTML = `<div class="note-content">${note.content}</div>`;
-                break;
-            case 'image':
-                contentHTML = `
-                    <img src="${note.file}" alt="${note.title}" class="note-image">
+    const formattedDate = new Date(note.date).toLocaleDateString();
+    const tagsHTML = note.tags.map(tag => `<span class="note-tag">${tag}</span>`).join('');
+    
+    let contentHTML = '';
+    
+    switch (note.type) {
+        case 'text':
+            contentHTML = `<div class="note-content">${note.content}</div>`;
+            break;
+        case 'image':
+            contentHTML = `
+                <img src="${note.file}" alt="${note.title}" class="note-image">
+                <div class="note-content">${note.content}</div>
+            `;
+            break;
+        case 'pdf':
+            contentHTML = `
+                <div class="note-pdf">
+                    <embed src="${note.file}" type="application/pdf" width="100%" height="200px" style="border-radius:8px;" />
                     <div class="note-content">${note.content}</div>
-                `;
-                break;
-            case 'pdf':
-                contentHTML = `
-                    <div class="note-pdf">
-                        <span class="pdf-icon">📄</span>
-                        <div>PDF Document</div>
-                    </div>
-                    <div class="note-content">${note.content}</div>
-                `;
-                break;
-        }
-
-        return `
-            <div class="note-card" data-note-id="${note.id}">
-                <div class="note-header">
-                    <div>
-                        <h3 class="note-title">${note.title}</h3>
-                        <span class="note-type">${note.type}</span>
-                    </div>
-                    <div class="note-actions">
-                        <button class="action-btn edit" onclick="editNote(${note.id})" title="Edit">✏️</button>
-                        <button class="action-btn delete" onclick="deleteNote(${note.id})" title="Delete">🗑️</button>
-                    </div>
                 </div>
-                
-                ${contentHTML}
-                
-                <div class="note-footer">
-                    <div class="note-tags">${tagsHTML}</div>
-                </div>
-                
-                <div class="note-date">${formattedDate}</div>
-            </div>
-        `;
+            `;
+            break;
     }
+
+    return `
+        <div class="note-card" data-note-id="${note.id}">
+            <div class="note-header">
+                <div>
+                    <h3 class="note-title">${note.title}</h3>
+                    <span class="note-type">${note.type}</span>
+                </div>
+                <div class="note-actions">
+                    <button class="action-btn edit" onclick="editNote(${note.id})" title="Edit">✏️</button>
+                    <button class="action-btn delete" onclick="deleteNote(${note.id})" title="Delete">🗑️</button>
+                </div>
+            </div>
+            
+            ${contentHTML}
+            
+            <div class="note-footer">
+                <div class="note-tags">${tagsHTML}</div>
+            </div>
+            
+            <div class="note-date">${formattedDate}</div>
+        </div>
+    `;
+}
 
     addNoteEventListeners() {
         const noteCards = document.querySelectorAll('.note-card');
@@ -191,33 +190,32 @@ class NotesManager {
     }
 
     showNoteDetails(note) {
-        // Create and show note details modal
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay active';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 class="modal-title">${note.title}</h2>
-                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay active';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">${note.title}</h2>
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+            </div>
+            <div class="note-details">
+                <div class="note-meta">
+                    <span class="note-type">${note.type}</span>
+                    <span class="note-date">${new Date(note.date).toLocaleDateString()}</span>
                 </div>
-                <div class="note-details">
-                    <div class="note-meta">
-                        <span class="note-type">${note.type}</span>
-                        <span class="note-date">${new Date(note.date).toLocaleDateString()}</span>
-                    </div>
-                    <div class="note-content-full">
-                        ${note.type === 'image' ? `<img src="${note.file}" alt="${note.title}" style="max-width: 100%; border-radius: 8px; margin-bottom: 15px;">` : ''}
-                        ${note.type === 'pdf' ? `<div class="note-pdf"><span class="pdf-icon">📄</span><div>PDF Document</div></div>` : ''}
-                        <p>${note.content}</p>
-                    </div>
-                    <div class="note-tags">
-                        ${note.tags.map(tag => `<span class="note-tag">${tag}</span>`).join('')}
-                    </div>
+                <div class="note-content-full">
+                    ${note.type === 'image' ? `<img src="${note.file}" alt="${note.title}" style="max-width: 100%; border-radius: 8px; margin-bottom: 15px;">` : ''}
+                    ${note.type === 'pdf' ? `<embed src="${note.file}" type="application/pdf" width="100%" height="600px" style="border-radius:8px;" />` : ''}
+                    <p>${note.content}</p>
+                </div>
+                <div class="note-tags">
+                    ${note.tags.map(tag => `<span class="note-tag">${tag}</span>`).join('')}
                 </div>
             </div>
-        `;
-        document.body.appendChild(modal);
-    }
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
 
     searchNotes(query) {
         if (!query.trim()) {
