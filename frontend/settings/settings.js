@@ -185,11 +185,28 @@ class SettingsManager {
             return;
         }
 
-        // Simulate API call
-        setTimeout(() => {
-            document.getElementById('passwordForm').reset();
-            this.showMessage('Password changed successfully!', 'success');
-        }, 500);
+        const token = localStorage.getItem('token');
+
+        fetch('http://localhost:5002/api/auth/change-password', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ currentPassword, newPassword })
+        })
+        .then(res => res.json().then(data => ({ status: res.status, body: data })))
+        .then(({ status, body }) => {
+            if (status === 200) {
+                document.getElementById('passwordForm').reset();
+                this.showMessage('Password changed successfully!', 'success');
+            } else {
+                this.showMessage(body.message || 'Failed to change password', 'error');
+            }
+        })
+        .catch(() => {
+            this.showMessage('Server error changing password', 'error');
+        });
     }
 
     changeTheme(theme) {
@@ -381,18 +398,32 @@ class SettingsManager {
 
     deleteAccount() {
         const confirmation = prompt('Type "DELETE" to confirm account deletion:');
-        
+
         if (confirmation === 'DELETE') {
-            // Clear all data
-            localStorage.clear();
-            sessionStorage.clear();
-            
-            this.showMessage('Account deleted successfully. Redirecting...', 'success');
-            
-            // Redirect to auth page
-            setTimeout(() => {
-                window.location.href = '../auth/auth.html';
-            }, 2000);
+            const token = localStorage.getItem('token');
+
+            fetch('http://localhost:5002/api/auth/delete-account', {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(res => res.json().then(data => ({ status: res.status, body: data })))
+            .then(({ status, body }) => {
+                if (status === 200) {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    this.showMessage('Account deleted successfully. Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '../auth/auth.html';
+                    }, 2000);
+                } else {
+                    this.showMessage(body.message || 'Account deletion failed', 'error');
+                }
+            })
+            .catch(() => {
+                this.showMessage('Server error deleting account', 'error');
+            });
         } else if (confirmation !== null) {
             this.showMessage('Account deletion cancelled - confirmation text did not match', 'error');
         }
